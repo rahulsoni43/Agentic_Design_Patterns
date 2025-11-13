@@ -211,26 +211,67 @@ sherlock-sre/
 
 ---
 
+## 🧪 Testing & Verification
+
+After setup, verify everything is working:
+
+```bash
+# Quick automated verification
+./verify.sh
+
+# Or run tests manually
+python tests/test_verification.py
+
+# Try example investigations
+python -m src.cli health
+python -m src.cli investigate "why is my pod crashlooping?"
+```
+
+See [tests/example_scenarios.md](tests/example_scenarios.md) for 10+ test scenarios.
+
+---
+
 ## 🚦 Getting Started
+
+### Quick Setup (Recommended)
 
 ```bash
 # Clone the repository
 git clone https://github.com/rahulsoni43/sherlock-sre.git
 cd sherlock-sre
 
+# Run automated setup
+./scripts/setup.sh
+
+# Verify installation
+./verify.sh
+
+# Start using Sherlock
+python -m src.cli health
+```
+
+### Manual Setup
+
+```bash
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
 # Install dependencies
 pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your API keys (ANTHROPIC_API_KEY required)
 
 # Run locally
-python src/main.py
+python -m src.main
 
 # Or use Docker
 docker-compose up
 ```
+
+**Full setup guide:** [docs/SETUP.md](docs/SETUP.md)
 
 ---
 

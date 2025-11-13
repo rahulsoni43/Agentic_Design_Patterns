@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  sherlock:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    container_name: sherlock-sre
+    env_file:
+      - .env
+    volumes:
+      # Mount kubeconfig for cluster access
+      - ~/.kube:/root/.kube:ro
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: PostgreSQL for Phase 2 (incident storage)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: sherlock-postgres
+  #   environment:
+  #     POSTGRES_DB: sherlock
+  #     POSTGRES_USER: sherlock
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+  # Optional: Redis for Phase 2 (caching)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: sherlock-redis
+  #   ports:
+  #     - "6379:6379"
+
+# volumes:
+#   postgres_data:

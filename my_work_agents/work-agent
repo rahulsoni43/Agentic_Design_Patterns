@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""
+Work Agent - Unified CLI for all your work AI agents
+
+Usage:
+  work-agent logs analyze /var/log/nginx/error.log
+  work-agent config review nginx.conf
+  work-agent incident diagnose "API is down"
+  work-agent explain "awk '{print $1}' | sort | uniq -c"
+  work-agent ask "how do I check kubernetes pod logs?"
+"""
+
+import sys
+import os
+import argparse
+from anthropic import Anthropic
+
+# Add agents directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'agents'))
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='AI-powered work assistant for SRE/DevOps tasks',
+        usage='work-agent <command> [options]'
+    )
+
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+
+    # Logs command
+    logs_parser = subparsers.add_parser('logs', help='Analyze log files')
+    logs_parser.add_argument('action', choices=['analyze'], help='Action to perform')
+    logs_parser.add_argument('file', help='Path to log file')
+    logs_parser.add_argument('--lines', '-n', type=int, default=1000, help='Max lines')
+
+    # Config command
+    config_parser = subparsers.add_parser('config', help='Review config files')
+    config_parser.add_argument('action', choices=['review'], help='Action to perform')
+    config_parser.add_argument('file', help='Path to config file')
+
+    # Incident command
+    incident_parser = subparsers.add_parser('incident', help='Incident response help')
+    incident_parser.add_argument('action', choices=['diagnose'], help='Action to perform')
+    incident_parser.add_argument('description', help='Incident description')
+    incident_parser.add_argument('--context', '-c', help='Additional context')
+
+    # Explain command
+    explain_parser = subparsers.add_parser('explain', help='Explain commands or concepts')
+    explain_parser.add_argument('query', nargs='+', help='Command or concept to explain')
+
+    # Ask command
+    ask_parser = subparsers.add_parser('ask', help='Ask any DevOps/SRE question')
+    ask_parser.add_argument('question', nargs='+', help='Your question')
+
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    # Route to appropriate agent
+    if args.command == 'logs':
+        from log_analyzer import LogAnalyzerAgent
+        agent = LogAnalyzerAgent()
+        agent.analyze(log_file_path=args.file, verbose=True)
+
+    elif args.command == 'config':
+        from config_reviewer import ConfigReviewerAgent
+        agent = ConfigReviewerAgent()
+        agent.review_config(args.file)
+
+    elif args.command == 'incident':
+        from incident_helper import IncidentHelperAgent
+        agent = IncidentHelperAgent()
+        agent.analyze_incident(args.description, args.context)
+
+    elif args.command == 'explain':
+        query = ' '.join(args.query)
+        client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+        prompt = f"""
+You are an expert SRE/DevOps engineer.
+
+Explain this command or concept in detail:
+{query}
+
+Include:
+- What it does
+- How it works
+- Common use cases
+- Practical examples
+- Any gotchas or warnings
+
+Be clear and concise.
+"""
+
+        message = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        print("\n" + "="*70)
+        print(f"EXPLAINING: {query}")
+        print("="*70 + "\n")
+        print(message.content[0].text)
+        print()
+
+    elif args.command == 'ask':
+        question = ' '.join(args.question)
+        client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+        prompt = f"""
+You are an expert SRE/DevOps engineer helping a colleague.
+
+Question: {question}
+
+Provide a detailed, practical answer with:
+- Direct answer to the question
+- Step-by-step instructions if applicable
+- Actual commands to run
+- Best practices
+- Common pitfalls to avoid
+
+Be concise but thorough.
+"""
+
+        message = client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=3072,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        print("\n" + "="*70)
+        print(f"QUESTION: {question}")
+        print("="*70 + "\n")
+        print(message.content[0].text)
+        print()
+
+
+if __name__ == "__main__":
+    main()

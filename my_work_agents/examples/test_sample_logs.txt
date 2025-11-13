@@ -1,0 +1,9 @@
+2025-01-13 14:23:15 [error] 1234#1234: *5678 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.1.100, server: api.example.com, request: "GET /api/users HTTP/1.1", upstream: "http://127.0.0.1:8080/api/users", host: "api.example.com"
+2025-01-13 14:23:16 [error] 1234#1234: *5679 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.1.101, server: api.example.com, request: "GET /api/users HTTP/1.1", upstream: "http://127.0.0.1:8080/api/users", host: "api.example.com"
+2025-01-13 14:23:17 [error] 1234#1234: *5680 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.1.102, server: api.example.com, request: "GET /api/users HTTP/1.1", upstream: "http://127.0.0.1:8080/api/users", host: "api.example.com"
+2025-01-13 14:23:20 [crit] 1234#1234: *5681 upstream server temporarily disabled while connecting to upstream, client: 192.168.1.103, server: api.example.com
+2025-01-13 14:23:25 [error] app[1234]: Database connection pool exhausted (active: 100, idle: 0, max: 100)
+2025-01-13 14:23:26 [error] app[1234]: Query timeout after 30s: SELECT * FROM users WHERE status = 'active' AND created_at > '2024-01-01'
+2025-01-13 14:23:27 [warn] app[1234]: High memory usage: 7.8GB / 8GB (97.5%)
+2025-01-13 14:23:30 [error] app[1234]: Failed to process payment for order #12345: Connection timeout to payment gateway
+2025-01-13 14:23:35 [error] 1234#1234: *12345 upstream timed out (110: Connection timed out) while reading response header from upstream

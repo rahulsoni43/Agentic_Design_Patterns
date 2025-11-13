@@ -1,0 +1,215 @@
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+
+---
+# ServiceAccount for RBAC
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8s-monitor
+  namespace: monitoring
+
+---
+# ClusterRole - read-only access to cluster resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-monitor-role
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - nodes
+      - events
+      - namespaces
+      - services
+      - persistentvolumeclaims
+    verbs: ["get", "list", "watch"]
+
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list"]
+
+  - apiGroups: ["autoscaling"]
+    resources:
+      - horizontalpodautoscalers
+    verbs: ["get", "list"]
+
+  - apiGroups: ["metrics.k8s.io"]
+    resources:
+      - pods
+      - nodes
+    verbs: ["get", "list"]
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8s-monitor-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: k8s-monitor-role
+subjects:
+  - kind: ServiceAccount
+    name: k8s-monitor
+    namespace: monitoring
+
+---
+# ConfigMap for configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k8s-monitor-config
+  namespace: monitoring
+data:
+  CLUSTER_NAME: "my-cluster"  # Change this to your cluster name
+  MONITORING_INTERVAL: "60"    # Check interval in seconds
+
+---
+# Secret for API keys (you need to create this manually)
+# kubectl create secret generic k8s-monitor-secrets \
+#   --from-literal=ANTHROPIC_API_KEY=your-key \
+#   --from-literal=SLACK_WEBHOOK_URL=your-webhook \
+#   -n monitoring
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: k8s-monitor-secrets
+  namespace: monitoring
+type: Opaque
+stringData:
+  ANTHROPIC_API_KEY: "REPLACE_WITH_YOUR_ANTHROPIC_API_KEY"
+  SLACK_WEBHOOK_URL: "REPLACE_WITH_YOUR_SLACK_WEBHOOK_URL"
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-monitor
+  namespace: monitoring
+  labels:
+    app: k8s-monitor
+spec:
+  replicas: 1  # Single instance is sufficient
+  selector:
+    matchLabels:
+      app: k8s-monitor
+  template:
+    metadata:
+      labels:
+        app: k8s-monitor
+    spec:
+      serviceAccountName: k8s-monitor
+      containers:
+        - name: monitor
+          image: k8s-monitor:latest  # Build with: docker build -t k8s-monitor:latest .
+          imagePullPolicy: IfNotPresent
+
+          env:
+            # From ConfigMap
+            - name: CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: k8s-monitor-config
+                  key: CLUSTER_NAME
+
+            # From Secret
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: k8s-monitor-secrets
+                  key: ANTHROPIC_API_KEY
+
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: k8s-monitor-secrets
+                  key: SLACK_WEBHOOK_URL
+
+          args:
+            - "--interval"
+            - "60"  # Check every 60 seconds
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+          # Health checks
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import sys; sys.exit(0)"
+            initialDelaySeconds: 30
+            periodSeconds: 60
+
+      restartPolicy: Always
+
+---
+# Optional: CronJob for scheduled checks instead of continuous monitoring
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: k8s-monitor-cron
+  namespace: monitoring
+spec:
+  # Run every 5 minutes
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: k8s-monitor
+          containers:
+            - name: monitor
+              image: k8s-monitor:latest
+              imagePullPolicy: IfNotPresent
+
+              env:
+                - name: CLUSTER_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: k8s-monitor-config
+                      key: CLUSTER_NAME
+
+                - name: ANTHROPIC_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: k8s-monitor-secrets
+                      key: ANTHROPIC_API_KEY
+
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: k8s-monitor-secrets
+                      key: SLACK_WEBHOOK_URL
+
+              args:
+                - "--once"  # Run once and exit
+
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+
+          restartPolicy: OnFailure
